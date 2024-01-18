@@ -17,9 +17,9 @@ public:
 	uint BoidsCount;
 	cudaError_t error;
 
-	float AvoidFactor = 0.8;
-	float MatchingFactor = 0.02;
-	float CenteringFactor = 0.005;
+	float AvoidFactor = 0.05;
+	float MatchingFactor = 0.05;
+	float CenteringFactor = 0.0003;
 
 	// rows (x changes), columns (y changes) depth (z changes)
 	Box Boxes[WIDTH / EDGELENGTH * DEPTH / EDGELENGTH * HEIGHT / EDGELENGTH];

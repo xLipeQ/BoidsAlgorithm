@@ -4,16 +4,25 @@
 #include "../Public/VertexBufferLayout.h"
 
 #include <glm/gtc/type_ptr.hpp>
+bool Renderer::Stop = false;
 
 void GLClearError()
 {
-	while (glGetError() != GL_NO_ERROR);
+	while (glGetError() != GL_NO_ERROR)
+	{
+		if (!Renderer::Stop)
+			continue;
+		else
+			break;
+	}
 }
 
 bool GLLogCall(const char* function, const char* file, int line)
 {
 	while (GLenum error = glGetError())
 	{
+		if (Renderer::Stop)
+			return true;
 		std::cout << "[ERROR: ]" << error << " " <<
 			function << " " << file << " " << line << std::endl;
 		return false;

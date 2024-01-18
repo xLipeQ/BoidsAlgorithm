@@ -14,15 +14,14 @@
 #define HEIGHT 800
 #define DEPTH 800
 
-#define EDGELENGTH 200
+#define EDGELENGTH 100
 
 #define MARGIN 50
 
-#define BOIDSCOUNT 10000
 #define MAXSPEED 6
 #define MINSPEED 2
-#define VISIBLERANGE 40
-#define PROTECTIONRANGE 8
+#define VISIBLERANGE 100
+#define PROTECTIONRANGE 30
 #define TURNFACTOR 0.2
 
 struct Position

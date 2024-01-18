@@ -386,6 +386,68 @@ __device__ int* GetSoroundingBoxes(Position* MyPosition, int* amount)
         (*amount)++;
     }
 
+    // check all previous corners in z direction
+    if (PrevZ) 
+    {
+        if (PrevY) 
+        {
+            if (PrevX) 
+            {
+                CloseBoxes[*amount] = my_Index - BoxAmountInX * BoxAmountInY - BoxAmountInX - 1;
+                (*amount)++;
+            }
+            if (NextX) 
+            {
+                CloseBoxes[*amount] = my_Index - BoxAmountInX * BoxAmountInY - BoxAmountInX + 1;
+                (*amount)++;
+            }
+        }
+        if (NextY) 
+        {
+            if (PrevX) 
+            {
+                CloseBoxes[*amount] = my_Index - BoxAmountInX * BoxAmountInY + BoxAmountInX - 1;
+                (*amount)++;
+            }
+            if (NextX) 
+            {
+                CloseBoxes[*amount] = my_Index - BoxAmountInX * BoxAmountInY + BoxAmountInX + 1;
+                (*amount)++;
+            }
+        }
+    }
+    // check all next corners in z direction
+
+    if (NextZ)
+    {
+        if (PrevY)
+        {
+            if (PrevX)
+            {
+                CloseBoxes[*amount] = my_Index + BoxAmountInX * BoxAmountInY - BoxAmountInX - 1;
+                (*amount)++;
+            }
+            if (NextX)
+            {
+                CloseBoxes[*amount] = my_Index + BoxAmountInX * BoxAmountInY - BoxAmountInX + 1;
+                (*amount)++;
+            }
+        }
+        if (NextY)
+        {
+            if (PrevX)
+            {
+                CloseBoxes[*amount] = my_Index + BoxAmountInX * BoxAmountInY + BoxAmountInX - 1;
+                (*amount)++;
+            }
+            if (NextX)
+            {
+                CloseBoxes[*amount] = my_Index + BoxAmountInX * BoxAmountInY + BoxAmountInX + 1;
+                (*amount)++;
+            }
+        }
+    }
+
     return CloseBoxes;
 }
 

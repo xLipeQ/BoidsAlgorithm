@@ -20,6 +20,7 @@ class Mesh;
 class Renderer
 {
 public:
+	static bool Stop;
 	void Draw(const VertexArray& va, const IndexBuffer& ib, const Shader& shader, uint instances = 1) const;
 	void DrawLines(const VertexArray& va, const IndexBuffer& ib, const Shader& shader) const;
 	void Clear() const;

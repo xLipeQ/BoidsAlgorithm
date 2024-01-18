@@ -20,8 +20,17 @@
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_opengl3.h"
 
-int main()
+int main(int argc, char* argv[])
 {
+	bool GPU = false;
+	uint BoidsCount = 10000;
+	if (argc == 3)
+	{
+		if (atoi(argv[1]) == 1)
+			GPU = true;
+		BoidsCount = atoi(argv[2]);
+	}
+
 	#pragma region GLFW init
 	// Initialize GLFW
 	GLFWwindow* window;
@@ -109,31 +118,20 @@ int main()
 		3, 7
 	};
 
-	Position* translations = new Position[BOIDSCOUNT];
-	int index = 0;
-	float offset = 0.1f;
-	for (int y = -10; y < 10; y += 2)
-	{
-		for (int x = -10; x < 10; x += 2)
-		{
-			translations[index].x = (float)x / 10.0f + offset;
-			translations[index].z = (float)x / 10.0f + offset;
-			translations[index++].y = (float)y / 10.0f + offset;
-		}
-	}
+	Position* translations = new Position[BoidsCount];
 
 	Shader shader("res/shaders/Basic.shader");
 	shader.Bind();
 
 	VertexArray VA, VABorder;
 	VertexBuffer VB(positions, 5 * 6 * sizeof(float)), VBborder(BorderPos, 8 * 6 * sizeof(float));
-	VertexBuffer* InstanceVB = new VertexBuffer(translations, BOIDSCOUNT* sizeof(Position));
-	glm::mat4* Rotations = new glm::mat4[BOIDSCOUNT];
-	for (size_t i = 0; i < BOIDSCOUNT; i++)
+	VertexBuffer* InstanceVB = new VertexBuffer(translations, BoidsCount* sizeof(Position));
+	glm::mat4* Rotations = new glm::mat4[BoidsCount];
+	for (size_t i = 0; i < BoidsCount; i++)
 	{
 		Rotations[i] = glm::mat4(1.f);
 	}
-	VertexBuffer* RotateVB = new VertexBuffer(Rotations, BOIDSCOUNT*sizeof(glm::mat4));
+	VertexBuffer* RotateVB = new VertexBuffer(Rotations, BoidsCount*sizeof(glm::mat4));
 	VertexBufferLayout VBL, VBLborder;
 
 	VBL.Push<float>(3);
@@ -152,7 +150,7 @@ int main()
 
 	VABorder.AddBuffer(VBborder, VBLborder);
 
-	Renderer renderer;
+	Renderer* renderer = new Renderer();
 	Camera camera(glm::vec3(0.f, 0.f, 4.f));
 	Camera::SetWorkingCamera(&camera);
 
@@ -163,22 +161,21 @@ int main()
 	duration elapsed = clock::now() - start;
 
 	
-	Boid* Boids = new Boid[BOIDSCOUNT];
-	Position* BoidsPositions = new Position[BOIDSCOUNT];
+	Boid* Boids = new Boid[BoidsCount];
+	Position* BoidsPositions = new Position[BoidsCount];
 
-	srand(time(NULL));
-	for (size_t i = 0; i < BOIDSCOUNT; i++)
+	for (size_t i = 0; i < BoidsCount; i++)
 	{
 		Boids[i].speedx = 2;
 		Boids[i].speedy = 2;
 		Boids[i].speedz = 2;
 
-		BoidsPositions[i].x = rand() % WIDTH;
-		BoidsPositions[i].y = rand() % HEIGHT;
-		BoidsPositions[i].z = rand() % DEPTH;
+		BoidsPositions[i].x = (BoidsCount - i + 20) % WIDTH;
+		BoidsPositions[i].y = (i + 20) % HEIGHT;
+		BoidsPositions[i].z = 50 % DEPTH;
 	}
-	CudaAllocations CudaAlloc(BoidsPositions, Boids, BOIDSCOUNT);
-	BoidAlgorithm BA(BoidsPositions, Boids, BOIDSCOUNT);
+	CudaAllocations CudaAlloc(BoidsPositions, Boids, BoidsCount);
+	BoidAlgorithm BA(BoidsPositions, Boids, BoidsCount);
 
 	const char* glsl_version = "#version 130";
 
@@ -195,60 +192,58 @@ int main()
 	// Main while loop
 	while (!glfwWindowShouldClose(window))
 	{
-#ifdef GPU
+		if (GPU)
+		{
+			GetNewPositions(translations, Rotations, &CudaAlloc);
+
+			delete InstanceVB;
+			InstanceVB = new VertexBuffer(translations, BoidsCount * sizeof(Position));
+			//delete RotateVB;
+			//RotateVB = new VertexBuffer(Rotations, BoidsCount * sizeof(glm::mat4));
+
+			VA.AddBuffer(VB, VBL, InstanceVB, RotateVB);
 
 
-		GetNewPositions(translations, Rotations, &CudaAlloc);
+			renderer->Clear();
 
-		delete InstanceVB;
-		InstanceVB = new VertexBuffer(translations, BOIDSCOUNT * sizeof(Position));
-		//delete RotateVB;
-		//RotateVB = new VertexBuffer(Rotations, BOIDSCOUNT * sizeof(glm::mat4));
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+			duration elapsed = clock::now() - start;
 
-		VA.AddBuffer(VB, VBL, InstanceVB, RotateVB);
+			ImGui::Begin("Properties");
+			ImGui::Text(("FPS: " + std::to_string((int)(1000 / elapsed.count()))).c_str());
+			ImGui::SliderFloat("Separation Factor", &CudaAlloc.AvoidFactor, 0.0, 2.0, "%.5f");
+			ImGui::SliderFloat("Alignment Factor", &CudaAlloc.MatchingFactor, 0.0, 0.7, "%.5f");
+			ImGui::SliderFloat("Cohesion Factor", &CudaAlloc.CenteringFactor, 0.0, 0.2, "%.5f");
+			ImGui::End();
+		}
+		else
+		{
+			BA.GetNewPositions(translations);
 
+			delete InstanceVB;
+			InstanceVB = new VertexBuffer(translations, BoidsCount * sizeof(Position));
+			//delete RotateVB;
+			//RotateVB = new VertexBuffer(Rotations, BoidsCount * sizeof(glm::mat4));
 
-		renderer.Clear();
-		
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		duration elapsed = clock::now() - start;
-
-		ImGui::Begin("Properties");
-		ImGui::Text(("FPS: " + std::to_string( (int)(1000 / elapsed.count()) )).c_str());
-		ImGui::SliderFloat("Avoid Factor", &CudaAlloc.AvoidFactor, 0.0, 2.0);
-		ImGui::SliderFloat("Matching Factor", &CudaAlloc.MatchingFactor, 0.0, 0.5);
-		ImGui::SliderFloat("Centering Factor", &CudaAlloc.CenteringFactor, 0.0, 0.1);
-		ImGui::End();
-
-#endif // GPU
-#ifndef GPU
-		BA.GetNewPositions(translations);
-
-		delete InstanceVB;
-		InstanceVB = new VertexBuffer(translations, BOIDSCOUNT * sizeof(Position));
-		//delete RotateVB;
-		//RotateVB = new VertexBuffer(Rotations, BOIDSCOUNT * sizeof(glm::mat4));
-
-		VA.AddBuffer(VB, VBL, InstanceVB, RotateVB);
+			VA.AddBuffer(VB, VBL, InstanceVB, RotateVB);
 
 
-		renderer.Clear();
+			renderer->Clear();
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		duration elapsed = clock::now() - start;
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+			duration elapsed = clock::now() - start;
 
-		ImGui::Begin("Properties");
-		ImGui::Text(("FPS: " + std::to_string((int)(1000 / elapsed.count()))).c_str());
-		ImGui::SliderFloat("Avoid Factor", &BA.AvoidFactor, 0.0, 2.0);
-		ImGui::SliderFloat("Matching Factor", &BA.MatchingFactor, 0.0, 0.5);
-		ImGui::SliderFloat("Centering Factor", &BA.CenteringFactor, 0.0, 0.1);
-		ImGui::End();
-
-#endif // !GPU
+			ImGui::Begin("Properties");
+			ImGui::Text(("FPS: " + std::to_string((int)(1000 / elapsed.count()))).c_str());
+			ImGui::SliderFloat("Separation Factor", &BA.AvoidFactor, 0.0, 2.0, "%.5f");
+			ImGui::SliderFloat("Alignment Factor", &BA.MatchingFactor, 0.0, 0.7, "%.5f");
+			ImGui::SliderFloat("Cohesion Factor", &BA.CenteringFactor, 0.0, 0.2, "%.5f");
+			ImGui::End();
+		}
 
 		shader.Bind();
 
@@ -259,11 +254,11 @@ int main()
 
 		VA.Bind();
 		IB.Bind();
-		renderer.Draw(VA, IB, shader, BOIDSCOUNT);
+		renderer->Draw(VA, IB, shader, BoidsCount);
 
 		VABorder.Bind();
 		IBborder.Bind();
-		renderer.DrawLines(VABorder, IBborder, shader);
+		renderer->DrawLines(VABorder, IBborder, shader);
 
 
 		ImGui::Render();
@@ -276,15 +271,14 @@ int main()
 
 	}
 
-	//DeleteCuda(&CudaAlloc);
-
 	// Delete window before ending the program
 	glfwDestroyWindow(window);
+	Renderer::Stop = true;
+	delete(renderer);
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-
 	// Terminate GLFW before ending the program
 	glfwTerminate();
 	return 0;
